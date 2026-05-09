@@ -87,7 +87,8 @@ for i in "${!PORTFOLIO_TOOLS[@]}"; do
 done
 
 tier3_select() {
-  local selected
+  local choice_entry
+  local final_selection
   local options=()
   local entry
   declare -A selected_map=()
@@ -101,24 +102,24 @@ tier3_select() {
     select opt in "${options[@]}"; do
       case "${opt:-}" in
         all)
-          for selected in "${ALL_ENTRIES[@]}"; do
-            selected_map["$selected"]=1
+          for choice_entry in "${ALL_ENTRIES[@]}"; do
+            selected_map["$choice_entry"]=1
           done
           echo "Selected all tools."
           ;;
         none)
-          selected_map=()
+          declare -A selected_map=()
           echo "Cleared selection."
           ;;
         done)
-          selected=()
+          final_selection=()
           for entry in "${ALL_ENTRIES[@]}"; do
-            [ "${selected_map[$entry]:-0}" = "1" ] && selected+=("$entry")
+            [ "${selected_map[$entry]:-0}" = "1" ] && final_selection+=("$entry")
           done
-          if [ "${#selected[@]}" -eq 0 ]; then
+          if [ "${#final_selection[@]}" -eq 0 ]; then
             echo "No tools selected yet." >&2
           else
-            printf '%s\n' "${selected[@]}"
+            printf '%s\n' "${final_selection[@]}"
             return 0
           fi
           ;;

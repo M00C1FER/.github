@@ -40,6 +40,7 @@ SCRIPT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/install-portfolio.sh"
   run bash "$tmpdir/install-portfolio-crlf.sh" --list
   [ "$status" -eq 0 ]
   [[ "$output" == *"mcp-citation-research"* ]]
+  rm -rf "$tmpdir"
 }
 
 @test "--all --unattended --pipx flag combination is accepted" {
