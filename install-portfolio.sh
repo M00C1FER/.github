@@ -27,6 +27,9 @@ for arg in "$@"; do
 done
 set -- "${sanitized_args[@]}"
 
+PORTFOLIO_ORG="${PORTFOLIO_ORG:-M00C1FER}"
+PORTFOLIO_BRANCH="${PORTFOLIO_BRANCH:-main}"
+
 PORTFOLIO_TOOLS=(
   "mcp-citation-research|citation-research-mcp|research|Hard-mandate research MCP server (4-axis source floor, BM25 citations, 0.90 confidence gate)"
   "memory-tool-conformance|memory-conformance|testing|LLM memory tool 6-op contract conformance suite"
@@ -285,7 +288,7 @@ for entry in "${selected_entries[@]}"; do
     continue
   fi
 
-  if ! curl -fsSL "https://raw.githubusercontent.com/M00C1FER/${repo}/main/install.sh" -o "$tmp_script"; then
+  if ! curl -fsSL "https://raw.githubusercontent.com/${PORTFOLIO_ORG}/${repo}/${PORTFOLIO_BRANCH}/install.sh" -o "$tmp_script"; then
     failed+=("$entry")
     FAILURE_STAGE["$entry"]="fetch"
     log_failure "$repo" "fetch" "failed to download install.sh"
@@ -320,7 +323,13 @@ for entry in "${selected_entries[@]}"; do
     continue
   fi
 
-  if ! "$entry" --help 2>&1 | grep -qE 'Usage:|usage:'; then
+  smoke_ok=false
+  if command -v "$entry" >/dev/null 2>&1 && "$entry" --help 2>&1 | grep -qE 'Usage:|usage:'; then
+    smoke_ok=true
+  elif [ -x "$HOME/.local/bin/$entry" ] && "$HOME/.local/bin/$entry" --help 2>&1 | grep -qE 'Usage:|usage:'; then
+    smoke_ok=true
+  fi
+  if ! $smoke_ok; then
     failed+=("$entry")
     FAILURE_STAGE["$entry"]="smoke-verify"
     log_failure "$repo" "smoke-verify" "${entry} --help did not match Usage pattern"
@@ -348,6 +357,6 @@ echo "Next: ensure ~/.local/bin is in your PATH:"
 echo '  export PATH="$HOME/.local/bin:$PATH"'
 echo
 echo "Re-run for any failed tools individually:"
-echo "  bash <(curl -fsSL https://raw.githubusercontent.com/M00C1FER/<tool>/main/install.sh)"
+echo "  bash <(curl -fsSL https://raw.githubusercontent.com/${PORTFOLIO_ORG}/<tool>/${PORTFOLIO_BRANCH}/install.sh)"
 
 [ "${#failed[@]}" -eq 0 ]
