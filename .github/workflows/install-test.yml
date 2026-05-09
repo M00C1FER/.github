@@ -1,0 +1,134 @@
+# Reusable install-test workflow — call from any M00C1FER repo via workflow_call.
+#
+# Acceptance gate: install.sh runs to completion in --unattended mode AND
+# the entry-point's --help exits 0 + matches /Usage:/ across all 8 cells.
+#
+# Usage from a calling workflow:
+#   jobs:
+#     test-install:
+#       uses: M00C1FER/.github/.github/workflows/install-test.yml@main
+#       with:
+#         entry_point: "<your-cli-name>"   # e.g., "cnr", "consensus", "council"
+
+name: install-test (multi-distro + WSL2)
+
+on:
+  workflow_call:
+    inputs:
+      entry_point:
+        description: "CLI binary that must respond to --help with /Usage:/ pattern"
+        required: true
+        type: string
+      install_args:
+        description: "Extra args to pass to install.sh (default: --unattended)"
+        required: false
+        type: string
+        default: "--unattended"
+      help_pattern:
+        description: "grep -E pattern the entry-point's --help must match"
+        required: false
+        type: string
+        default: "Usage:|usage:"
+
+permissions:
+  contents: read
+
+jobs:
+  linux-matrix:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Debian 12"
+            container: "debian:12"
+            bootstrap: "apt-get update -qq && apt-get install -y --no-install-recommends curl git ca-certificates file"
+          - name: "Ubuntu 22.04"
+            container: "ubuntu:22.04"
+            bootstrap: "apt-get update -qq && apt-get install -y --no-install-recommends curl git ca-certificates file"
+          - name: "Ubuntu 24.04 (PEP 668)"
+            container: "ubuntu:24.04"
+            bootstrap: "apt-get update -qq && apt-get install -y --no-install-recommends curl git ca-certificates file"
+          - name: "Fedora 41"
+            container: "fedora:41"
+            bootstrap: "dnf install -y curl git ca-certificates file shadow-utils"
+          - name: "Alpine 3.19 (musl)"
+            container: "alpine:3.19"
+            bootstrap: "apk add --no-cache bash curl git ca-certificates file shadow"
+          - name: "Arch (rolling)"
+            container: "archlinux:latest"
+            bootstrap: "pacman -Sy --noconfirm curl git ca-certificates file"
+          - name: "Kali (rolling)"
+            container: "kalilinux/kali-rolling"
+            bootstrap: "apt-get update -qq && apt-get install -y --no-install-recommends curl git ca-certificates file"
+    steps:
+      - name: Bootstrap container
+        run: |
+          set -e
+          ${{ matrix.bootstrap }}
+      - uses: actions/checkout@v4
+      - name: Mark workspace as Git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Run installer (unattended)
+        run: |
+          set -e
+          if [ -x ./install.sh ]; then
+            bash ./install.sh ${{ inputs.install_args }}
+          else
+            echo "::warning::No install.sh; falling back to pip install -e ."
+            python3 -m venv .venv
+            . .venv/bin/activate
+            pip install -e . || pip install --break-system-packages -e .
+          fi
+      - name: Smoke verify entry-point
+        run: |
+          set -e
+          ENTRY="${{ inputs.entry_point }}"
+          # Try venv first, then PATH, then ~/.local/bin
+          for prefix in ".venv/bin/" "" "$HOME/.local/bin/"; do
+            if command -v "${prefix}${ENTRY}" >/dev/null 2>&1; then
+              "${prefix}${ENTRY}" --help | grep -qE "${{ inputs.help_pattern }}"
+              exit 0
+            fi
+          done
+          echo "::error::entry-point '${ENTRY}' not found in PATH or .venv/bin/ or ~/.local/bin/"
+          exit 1
+
+  wsl2-ubuntu:
+    name: "WSL2 + Ubuntu 24.04"
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up WSL2 + Ubuntu
+        uses: Vampire/setup-wsl@v3
+        with:
+          distribution: Ubuntu-24.04
+          set-as-default: "true"
+          additional-packages: curl git ca-certificates file python3 python3-venv python3-pip
+      - name: Run installer in WSL (unattended)
+        shell: wsl-bash {0}
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          if [ -x ./install.sh ]; then
+            bash ./install.sh ${{ inputs.install_args }}
+          else
+            python3 -m venv .venv
+            . .venv/bin/activate
+            pip install -e .
+          fi
+      - name: Smoke verify entry-point in WSL
+        shell: wsl-bash {0}
+        run: |
+          set -e
+          ENTRY="${{ inputs.entry_point }}"
+          for prefix in ".venv/bin/" "" "$HOME/.local/bin/"; do
+            if command -v "${prefix}${ENTRY}" >/dev/null 2>&1; then
+              "${prefix}${ENTRY}" --help | grep -qE "${{ inputs.help_pattern }}"
+              exit 0
+            fi
+          done
+          echo "::error::entry-point '${ENTRY}' not found in WSL"
+          exit 1
