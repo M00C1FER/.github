@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-SCRIPT="/home/runner/work/.github/.github/install-portfolio.sh"
+SCRIPT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/install-portfolio.sh"
 
 @test "--list prints all 11 tool names" {
   run bash "$SCRIPT" --list

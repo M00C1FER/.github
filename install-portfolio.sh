@@ -84,9 +84,10 @@ for i in "${!PORTFOLIO_TOOLS[@]}"; do
 done
 
 tier3_select() {
-  local selected=()
+  local selected
   local options=()
   local entry
+  declare -A selected_map=()
   for entry in "${ALL_ENTRIES[@]}"; do
     options+=("$entry")
   done
@@ -97,14 +98,20 @@ tier3_select() {
     select opt in "${options[@]}"; do
       case "${opt:-}" in
         all)
-          selected=("${ALL_ENTRIES[@]}")
+          for selected in "${ALL_ENTRIES[@]}"; do
+            selected_map["$selected"]=1
+          done
           echo "Selected all tools."
           ;;
         none)
-          selected=()
+          selected_map=()
           echo "Cleared selection."
           ;;
         done)
+          selected=()
+          for entry in "${ALL_ENTRIES[@]}"; do
+            [ "${selected_map[$entry]:-0}" = "1" ] && selected+=("$entry")
+          done
           if [ "${#selected[@]}" -eq 0 ]; then
             echo "No tools selected yet." >&2
           else
@@ -116,11 +123,11 @@ tier3_select() {
           echo "Invalid selection." >&2
           ;;
         *)
-          if printf '%s\n' "${selected[@]}" | grep -qx "$opt"; then
-            mapfile -t selected < <(printf '%s\n' "${selected[@]}" | grep -vx "$opt")
+          if [ "${selected_map[$opt]:-0}" = "1" ]; then
+            unset "selected_map[$opt]"
             echo "Removed: $opt"
           else
-            selected+=("$opt")
+            selected_map["$opt"]=1
             echo "Added: $opt"
           fi
           ;;
@@ -262,6 +269,7 @@ fi
 successful=()
 failed=()
 declare -A FAILURE_STAGE=()
+declare -A SUCCESS_MAP=()
 
 for entry in "${selected_entries[@]}"; do
   idx="${ENTRY_TO_INDEX[$entry]}"
@@ -273,6 +281,7 @@ for entry in "${selected_entries[@]}"; do
 
   if [ "$dry_run" = "1" ]; then
     successful+=("$entry")
+    SUCCESS_MAP["$entry"]=1
     continue
   fi
 
@@ -319,6 +328,7 @@ for entry in "${selected_entries[@]}"; do
   fi
 
   successful+=("$entry")
+  SUCCESS_MAP["$entry"]=1
 done
 
 echo
@@ -326,7 +336,7 @@ echo "=== Portfolio install complete ==="
 for entry in "${selected_entries[@]}"; do
   idx="${ENTRY_TO_INDEX[$entry]}"
   repo="${ALL_REPOS[$idx]}"
-  if printf '%s\n' "${successful[@]}" | grep -qx "$entry"; then
+  if [ "${SUCCESS_MAP[$entry]:-0}" = "1" ]; then
     printf '✓ %-28s %s\n' "$repo" "$entry"
   else
     printf '✗ %-28s (failed at %s; see %s)\n' "$repo" "${FAILURE_STAGE[$entry]}" "$LOG_FILE"
