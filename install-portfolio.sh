@@ -307,7 +307,7 @@ for entry in "${selected_entries[@]}"; do
     pipx) install_args=("--pipx" "--unattended") ;;
     venv) install_args=("--venv" "--unattended") ;;
     pip) install_args=("--pip" "--unattended") ;;
-    each) install_args=("--unattended") ;;
+    each) install_args=() ;;
     *)
       failed+=("$entry")
       FAILURE_STAGE["$entry"]="config"
