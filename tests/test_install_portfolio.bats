@@ -35,7 +35,8 @@ SCRIPT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/install-portfolio.sh"
 @test "WSL CRLF self-heal works with CRLF-encoded copy" {
   tmpdir="$(mktemp -d)"
   cp "$SCRIPT" "$tmpdir/install-portfolio-crlf.sh"
-  sed -i 's/$/\r/' "$tmpdir/install-portfolio-crlf.sh"
+  sed -i.bak 's/$/\r/' "$tmpdir/install-portfolio-crlf.sh"
+  rm -f "$tmpdir/install-portfolio-crlf.sh.bak"
 
   run bash "$tmpdir/install-portfolio-crlf.sh" --list
   [ "$status" -eq 0 ]

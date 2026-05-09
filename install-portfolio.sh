@@ -108,7 +108,7 @@ tier3_select() {
           echo "Selected all tools."
           ;;
         none)
-          declare -A selected_map=()
+          selected_map=()
           echo "Cleared selection."
           ;;
         done)
@@ -303,7 +303,6 @@ for entry in "${selected_entries[@]}"; do
     continue
   fi
 
-  install_args=("--unattended")
   case "$isolation_mode" in
     pipx) install_args=("--pipx" "--unattended") ;;
     venv) install_args=("--venv" "--unattended") ;;
