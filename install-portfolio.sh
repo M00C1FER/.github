@@ -108,7 +108,8 @@ tier3_select() {
           echo "Selected all tools."
           ;;
         none)
-          selected_map=()
+          unset selected_map
+          declare -A selected_map=()
           echo "Cleared selection."
           ;;
         done)
